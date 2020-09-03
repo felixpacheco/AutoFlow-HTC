@@ -25,22 +25,21 @@ from matplotlib.legend_handler import HandlerLine2D
 import seaborn as sns
 import xlsxwriter
 import datetime
+#TEST
 
 
+__version__ = "0.1.1"
 
-__version__ = "0.0.8"
-
-
-
-# ------ MAIN RUNNER ------
 
 
 def argument_parser(argv_list=None):
 	'''Asesses the input arguments and outputs flags to run the different functions according to the user needs.
-	Keyword arguments:
-    argv_list -- List of arguments provided by the user when running the program.
-    Returned variables:
-    flags
+	
+	Args:
+		argv_list: List of arguments provided by the user when running the program.
+
+	Returns:
+		flags
 	'''
 
 	#Initialize the argument parser
@@ -139,14 +138,15 @@ def read_xlsx(filename = "results.xlsx") : #done
 
 def sample_outcome(sample_file, df) : #done
 	'''Uses an external file containing individual sample purposes, returns two classifed dataframes based on sample purposes and labelled by bioshaker.
-	Keyword arguments:
-    sample_file -- variable or string containing the name of the file and its extension.
-    df 			-- dataframe obtained by using the read_xlsx method on the merged xlsx file.
 	
-	Returned variables:
-	df_gr -- dataframe containing observations related to the microbial growth rate, labelled by bioshaker.
-	df_vl -- dataframe containing observations related to the volume loss estimation, labelled by bioshaker.
-    '''
+	Args:
+		sample_file: variable or string containing the name of the file and its extension.
+		df: dataframe obtained by using the read_xlsx method on the merged xlsx file.
+	
+	Returns:
+		df_gr: dataframe containing observations related to the microbial growth rate, labelled by bioshaker.
+		df_vl: dataframe containing observations related to the volume loss estimation, labelled by bioshaker.
+	'''
 
 	#Open the file containing sample purposes
 	df_calc = pd.read_csv(sample_file, sep="\t")  #Info about the purpose of the sample (growth rate, volume loss compensation, species and drop-out samples)
@@ -179,11 +179,12 @@ def sample_outcome(sample_file, df) : #done
 
 def time_formater(df) :
 	'''Takes a dataframe and turns date and time variables into differential time in hours for every bioshaker, returns modified dataframe.
-	Keyword arguments:
-    df 		-- dataframe with containing date and time measurements.
 	
-	Returned variables:
-	df_out 	-- dataframe with differential time measurements in hours.
+	Args:
+		df: dataframe with containing date and time measurements.
+	
+	Returns:
+		df_out: dataframe with differential time measurements in hours.
 	'''
 	#Get list of bioshakers
 	unique_bioshakers = df["bioshaker"].unique()
@@ -206,15 +207,20 @@ def time_formater(df) :
 
 		#Substracting the time of the first obs to all obs
 		df_temp['time_hours'] = df_temp["date_time"] - df_temp.loc[df_temp.index[0], 'date_time']
-		df_temp["time_hours"] = df_temp["time_hours"].dt.total_seconds()/3600
+		df_temp['h'] = df_temp['time_hours'].dt.components['hours']
+		df_temp['m'] = df_temp['time_hours'].dt.components['minutes']
+		df_temp['s'] = df_temp['time_hours'].dt.components['seconds']
+		df_temp["time_hours"] = df_temp['h']+df_temp['m']/60+df_temp['s']/360
+
+		#df_temp["time_hours"] = df_temp["time_hours"].dt.total_seconds()/3600
 
 		#Append dataframes together
 		df_out = df_out.append(df_temp)
 	
 	#Removal of temporary variables
 	df_out = df_out.drop_duplicates()
-	df_out = df_out.drop(columns=["Sampling_date", "Sampling_time"])
-	df_out = df_out.drop(columns=["date_time"])
+	#df_out = df_out.drop(columns=["Sampling_date", "Sampling_time"])
+	#df_out = df_out.drop(columns=["date_time"])
 	
 	return df_out
 
@@ -225,11 +231,12 @@ def time_formater(df) :
 
 def vol_correlation(df_vl): #done
 	''' Assess the volume loss with OD450 measurements and correlates the OD450 readings to time for every different bioshaker, returns a correlation dataframe.
-	Keyword arguments:
-	df_vl	-- dataframe containing only volume loss measurements.
 	
-	Returned variables:
-	cor_df 	-- dataframe containing correlation values of the volume loss according to time measurements.
+	Args:
+		df_vl: dataframe containing only volume loss measurements.
+	
+	Returns:
+		cor_df: dataframe containing correlation values of the volume loss according to time measurements.
 	'''
 
 	#Subset initial df_raw according to OD measurement and get unique IDs
@@ -254,13 +261,14 @@ def vol_correlation(df_vl): #done
 
 def compensation_lm(cor_df, df_gr) : #done
 	''' Given the correlation between volume and time, a linear model is built and plotted, the correction is applied to the growth measurements using the linear model, returns a figure with the LM and a dataframe with the corrected growth rate measurements.
-	Keyword arguments:
-    df_gr	-- dataframe containing only growth rate measurements and differential time in hours.
-	cor_df	-- dataframe containing correlation measures between volume loss and time for different bioshakers.
 	
-	Returned variables:
-	fig 			-- figure representing the linear model between the correlation and the time for every bioshaker.
-	df_gr_comp_out 	-- dataframe containing corrected growth rate measurements and differential time in hours.'''
+	Args:
+		df_gr: dataframe containing only growth rate measurements and differential time in hours.
+		cor_df: dataframe containing correlation measures between volume loss and time for different bioshakers.
+	
+	Returns:
+		fig: figure representing the linear model between the correlation and the time for every bioshaker.
+		df_gr_comp_out: dataframe containing corrected growth rate measurements and differential time in hours.'''
 	
 
 	#For every bioshaker a linear model is created
@@ -310,16 +318,20 @@ def compensation_lm(cor_df, df_gr) : #done
 
 def reshape_dataframe(df_gr, flag_species = False, flag_bioshaker = False) :
 	''' Collects the times belonging to every sample and creates a time column relative to a specific sample, returns the modified dataframe.
-	Keyword arguments:
-    df_gr 	-- dataframe containing growth rate measurements and differential time in hours.
-	species_flag  	-- flag that corresponds to the presence of more than one species (True), False if only one species
-	Returned variables:
-	if species_flag is False 
-	df_gr -- dataframe with differential time measurements in hours displayed horizontally (one column containing the time measurements and one column contaning the OD measurements PER SAMPLE).
+	
+	Args:
+		df_gr: dataframe containing growth rate measurements and differential time in hours.
+		species_flag: flag that corresponds to the presence of more than one species (True), False if only one species
+	
+	Returns:
+		if species_flag is False 
+			
+			df_gr: dataframe with differential time measurements in hours displayed horizontally (one column containing the time measurements and one column contaning the OD measurements PER SAMPLE).
 
-	if flag is True :
-	df_gr_final 	 --  dataframe with differential time measurements in hours displayed horizontally (one column containing the time measurements and one column contaning the OD measurements PER SAMPLE).
-	df_gr_final_list -- list of dataframes originated from df_gr_final and split by common sample species
+		if flag is True :
+			
+			df_gr_final:  dataframe with differential time measurements in hours displayed horizontally (one column containing the time measurements and one column contaning the OD measurements PER SAMPLE).
+			df_gr_final_list: list of dataframes originated from df_gr_final and split by common sample species
 	'''
 
 
@@ -418,12 +430,13 @@ def reshape_dataframe(df_gr, flag_species = False, flag_bioshaker = False) :
 
 def gr_estimation(df_gr_final) :
 	''' removes outliers for every sample and outputs growth rate estimates for every given sample ID as a text file
-	Keyword arguments:
-    df_gr_final 	-- dataframe containing growth rate measurements and differential time in hours.
 	
-	Returned variables:
-	estimations -- List of growth rate estimations for every sample in df_gr_final
-	errors 		-- due to croissance noise handling some samples can not be estimated and list of series is returned for every non-estimated sample
+	Args:
+		df_gr_final: dataframe containing growth rate measurements and differential time in hours.
+	
+	Returns:
+		estimations: List of growth rate estimations for every sample in df_gr_final
+		errors: due to croissance noise handling some samples can not be estimated and list of series is returned for every non-estimated sample
 	'''
 	
 	#croissance series input format 
@@ -439,7 +452,7 @@ def gr_estimation(df_gr_final) :
 
 	df_annotations["Parameter"] = ["Start", "End", "Slope", "Intercept", "n0", "SNR", "rank"]
 
-
+	print("a")
 	for col in range(len(colnames)):
 
 		#Series format for process_curve input
@@ -450,7 +463,7 @@ def gr_estimation(df_gr_final) :
 
 			#Some samples are too noise to handle by the croissance library and raise an error
 			gr_estimation = process_curve(my_series)
-
+			print("est")
 		except :
 
 			#For those samples that raise errors, the outliers are removed and a series is returned
@@ -462,7 +475,7 @@ def gr_estimation(df_gr_final) :
 		#Dataframe generation with outlier free data
 		df_temp = pd.DataFrame({colnames[col]+'_data':est_series.index, colnames[col]+"_time":est_series.values})
 		df_data_series = pd.concat([df_data_series,df_temp], ignore_index=False, axis=1)
-
+		print("b")
 		#--Annotated growth curve--
 
 		if colnames[col] in errors or len(gr_estimation[2]) == 0 :
@@ -473,8 +486,6 @@ def gr_estimation(df_gr_final) :
 			else :
 
 				pass
-
-
 
 		else :
 			
@@ -503,7 +514,8 @@ def gr_estimation(df_gr_final) :
 			#Append Annotations to returned dataframe
 			df_temp_annotations[colnames[col]] = list_annotations
 			df_annotations = pd.concat([df_annotations , df_temp_annotations], ignore_index=False, axis=1)
-			
+			print(col)
+
 	return df_data_series, df_annotations, errors
 
 
@@ -513,14 +525,16 @@ def gr_estimation(df_gr_final) :
 
 def estimation_writter(df_data_series, df_annotations, error_list) :
 	'''Writes a xlsx file with the estimations for every sample and outputs the errors on a log file.
-	Keyword arguments:
-    df_data_series				-- dataframe containing the time series without outliers.
-    df_annotations      		-- dataframe containing the annotations of the linear phase.
-    error_list					-- list containing the non-estimated samples by croissance due to noisy data
-	Returned variables:
-	series_xlsx_file 			-- file containing the estimations and IDs
-	annotations_xlsx_file 		-- file containing the data series and IDs without outliers of the non-estimated samples
-	log_file 					-- file containing the non estimated samples 
+	
+	Args:
+		df_data_series: dataframe containing the time series without outliers.
+	 	df_annotations: dataframe containing the annotations of the linear phase.
+		error_list: list containing the non-estimated samples by croissance due to noisy data
+	
+	Returns:
+		series_xlsx_file: file containing the estimations and IDs
+		annotations_xlsx_file: file containing the data series and IDs without outliers of the non-estimated samples
+		log_file: file containing the non estimated samples 
 	'''
 	df_data_series.to_excel(r'Data_series.xlsx', header = True,index = False)
 	df_annotations.to_excel(r'Annotations.xlsx', header = True, index = False)
@@ -545,14 +559,15 @@ def estimation_writter(df_data_series, df_annotations, error_list) :
 
 def gr_plots(df, sample, color_ = None, ind = False, legend_ = "bioshaker", title_ = "species" ) :
 	'''Generates a growth curve plot for a given series for common species, returns the plot.
-	Keyword arguments:
-    df		-- dataframe containing differential times and OD measurements
-    sample 	-- 
-    ind 	-- flag that indicates to output individual plots if True or merged plots by sample species if False
 	
-	Returned variables:
-	fig 		-- object containing the figure
-	plt.savefig -- saving the figure as a png file
+	Args:
+		df: dataframe containing differential times and OD measurements
+		sample: sample used
+		ind: flag that indicates to output individual plots if True or merged plots by sample species if False
+	
+	Returns:
+		fig: object containing the figure
+		plt.savefig: saving the figure as a png file
 	'''
 	#Create plots individually
 
@@ -623,11 +638,12 @@ def gr_plots(df, sample, color_ = None, ind = False, legend_ = "bioshaker", titl
 def stats_summary(df_annotations) :
 
 	'''Generates a statistics summary of the growth rate annotations.
-	Keyword arguments:
-    df_annotations				-- dataframe containing growth rate annotations
+	
+	Args:
+		df_annotations: dataframe containing growth rate annotations
 
-	Returned variables:
-	summary_df 					-- dataframe containing the summary statistics
+	Returns:
+		summary_df: dataframe containing the summary statistics
 	'''
 
 	#-- Summary by species and bioshaker --
@@ -638,7 +654,7 @@ def stats_summary(df_annotations) :
 	summary_df =  pd.DataFrame()
 
 	#Species and bioshaker labels
-	species_list= [re.sub(r'\S+[.]\S+[_](\S+)', r'\1', i) for i in (df_annotations.columns.values[1:])]
+	species_list= [re.sub(r'\S+[.]?\S+[_](\S+)', r'\1', i) for i in (df_annotations.columns.values[1:])]
 	x = slice(0, 3) 
 	bioshaker_list = [i[x] for i in (df_annotations.columns.values[1:])]
 	summary_df["species"] =  species_list
@@ -688,13 +704,14 @@ def exponential(x, intercep, slope, n0):
 
 def interpolation(od_measurements, df_annotations, mean_df_bs):
 	'''Interpolates the values of given od readings and returns growth rate measurements.
-	Keyword arguments:
-    od_measurements 			-- Dataframe containing the desired samples to estimate
-    df_annotations				-- Dataframe containing growth rate annotations of every sample
-	mean_df_bs 					-- Dataframe containing the growth rate annotations grouped by common species and bioshaker
+	
+	Args:
+		od_measurements: Dataframe containing the desired samples to estimate
+		df_annotations: Dataframe containing growth rate annotations of every sample
+		mean_df_bs: Dataframe containing the growth rate annotations grouped by common species and bioshaker
 
-	Returned variables:
-	od_measurements				-- Returned estimated od measurements and if the prediction lies in the model's range
+	Returns:
+		od_measurements: Returned estimated od measurements and if the prediction lies in the model's range
 	'''
 	od_measurements = pd.read_csv(od_measurements, sep="\t")
 
